@@ -1,6 +1,6 @@
 ---
 title: '7\. Data wrangling with simulated communitites'
-author: 'Z620: Quantitative Biodiversity, Indiana University'
+author: 'Z620: Quantitative Biodiversity, Indiana University, Timothy Biewer-Heisler'
 header-includes:
    - \usepackage{array}
 output: pdf_document
@@ -20,7 +20,7 @@ We will learn about these tools while also gaining exposure to R packages that a
 ```{r, results = 'hide'}
 rm(list=ls()) 
 getwd() 
-setwd("~/GitHub/QB-2021/1.Handouts/7.ControlStructures")
+setwd("~/GitHub/QB2021_Biewer-Heisler/2.Worksheets/7.DataWrangling")
 ```
 
 ## 2) SIMULATE BIODIVERSITY 
@@ -78,14 +78,14 @@ Specifically, we will randomly sample 10 different quadrats, each with area size
 comm_mat1 <- sample_quadrats(com1, n_quadrats = 10, quadrat_area = 0.01, 
              method = "random", avoid_overlap = T)  
 
-# Rename sampled areas as quadrats
+# Rename sampled areas as quadrants
 quads <- c("quad1", "quad2", "quad3", "quad4", "quad5", "quad6", "quad7",
            "quad8", "quad9", "quad10")
 row.names(comm_mat1$xy_dat) <- quads
 row.names(comm_mat1$spec_dat) <- quads
 
 # Examine the species x quadrat matrix 
-# print(comm_mat1$spec_dat)
+ print(comm_mat1$spec_dat)
 ```
 
 Let's quickly take a look at the rank-abundance curve (RAC) of our plant community using the `rad` function from the `vegan` package. 
@@ -121,7 +121,7 @@ comm_mat1_diversity[,2] <- diversity(comm_mat1$spec_dat, index = "shannon")[1:10
 comm_mat1_diversity[,3] <- diversity(comm_mat1$spec_dat, index = "invsimpson")[1:10]
 
 # Examine summary of diversity measures across quadrats
-#print(comm_mat1_diversity)
+print(comm_mat1_diversity)
 ```
 
 ## 2) WRANGLING SIMULATED DATA
@@ -157,7 +157,7 @@ for(i in 1:10) {
 colnames(comm_mat1_diversity)[4:5] <- c('mean_sp','se_sp')
 
 # Examine summary of diversity measures across quadrats
-#print(comm_mat1_diversity)
+print(comm_mat1_diversity)
 ```
 
 ### B. Summarize diversity data with the `apply` function
@@ -205,7 +205,7 @@ comm_mat1_tidy <- comm_mat1_diversity %>% # identify data frame of interest
   group_by(indices) %>% # group according to these factors
   summarise(mean = mean(value), sem = sem(value)) # calculate mean and sem
 
-#print(comm_mat1_tidy)
+print(comm_mat1_tidy)
 
 # plot mean and sem for alpha diversity indices
 # create empty plot with information for x and y axes
@@ -240,6 +240,46 @@ But the SAR is also influenced by biological phenomena including dispersal limit
 1. Using the `sim_poisson_community` function from the `mobsim`, along with any of the data wrangling tools described above, construct a species area relationship (SAR).
 Feel free to choose different values for the the function's arguments. 
 Create an SAR plot and calculate the corresponding *z*-value. 
+```{r}
+options(warn = -1)
+# simulate community with `mobsim`
+com1 <- sim_poisson_community(s_pool = 25, n_sim = 1000, sad_type = "lnorm", 
+        sad_coef = list("meanlog" = 2, "sdlog" = 1))
+# visualize site
+plot(com1)
+#sad_coef = list("meanlog" = 2, "sdlog" = 1)
+#print(sad_coef)
+summary(com1)
+a = c(0.01, 0.1, 0.2, 0.5, 0.7, 0.9, 1)
+quad_areas <- seq(0.005, 0.5, 0.001)
+dfs <- vector("list", length(quad_areas))
+for(qa in 1: length(quad_areas)){
+  comm_mat1 <- sample_quadrats(com1, n_quadrats = 10, quadrat_area = quad_areas[qa], plot = FALSE,
+             method = "random", avoid_overlap = T)
+  com_df <- comm_mat1$spec_dat %>%
+    mutate(richness = rowSums(.[, 1:ncol(comm_mat1$spec_dat)] > 1))%>%
+    mutate(area = quad_areas[qa])%>%
+    select(area, richness)
+  dfs[[qa]] <- com_df
+
+}
+samps_nonzero <- bind_rows(dfs)%>%
+  filter(richness > 0)%>%
+  mutate(log10_richness = log10(richness))%>%
+  mutate(log10_area = log10(area))
+regression <- lm(log10_richness ~ log10_area, samps_nonzero)
+print(regression$coefficients[['log10_area']])
+
+# data(com1)
+# 
+# fit <- lin_pow(data = com1, compare = TRUE, con = 1) 
+# summary(fit) 
+
+SARplot <- ggplot(samps_nonzero, aes(x = log10_area, y = log10_richness)) + geom_point() + stat_smooth(method = 'lm')
+SARplot
+linreg <- lm(log10_richness ~ log10_area, samps_nonzero)
+print(linreg$coefficients[['log10_area']])
+```
 
 2. The `sim_poisson_community`function simulates species that have a random spatial distribution.
 However, in nature, this is rarely the case. 
@@ -247,10 +287,42 @@ Species often have patchy distributions, which can be simulated in `mobsim` usin
 Include a plot of the patchy distribution using examples above.
 Then, create another SAR plot from the patchy community and compare its *z*-values to that of the random distribution. 
 
+```{r}
+comThom <- sim_thomas_community(s_pool = 25, n_sim = 1000, sad_type = "lnorm", 
+        sad_coef = list("meanlog" = 2, "sdlog" = 1))
+# visualize site
+plot(comThom)
+
+
+quad_areas2 <- seq(0.005, 0.5, 0.001)
+dfs2 <- vector("list", length(quad_areas2))
+for(qa2 in 1: length(quad_areas2)){
+  comm_Thom1 <- sample_quadrats(comThom, n_quadrats = 10, quadrat_area = quad_areas2[qa], plot = FALSE,
+             method = "random", avoid_overlap = T)
+  com_df <- comm_mat1$spec_dat %>%
+    mutate(richness = rowSums(.[, 1:ncol(comm_Thom1$spec_dat)] > 1))%>%
+    mutate(area = quad_areas2[qa])%>%
+    select(area, richness)
+  dfs2[[qa]] <- com_df
+
+}
+samps_nonzero <- bind_rows(dfs)%>%
+  filter(richness > 0)%>%
+  mutate(log10_richness = log10(richness))%>%
+  mutate(log10_area = log10(area))
+regression <- lm(log10_richness ~ log10_area, samps_nonzero)
+print(regression$coefficients[['log10_area']])
+SARplot <- ggplot(samps_nonzero, aes(x = log10_area, y = log10_richness)) + geom_point() + stat_smooth(method = 'lm')
+SARplot
+linreg <- lm(log10_richness ~ log10_area, samps_nonzero)
+print(linreg$coefficients[['log10_area']])
+
+```
+
 3. Explain the SAR patterns from your simulations along with any observed differences based on how we have simulated the communities.
 Are there any features that you might include with a more elaborate simulation? 
 Describe. 
-
+For both Thomas and Poisson the Z values appeared to be very high. I am not sure how this is influenced by how the artificial communities are created. While the Thomas simulation clearly had a more random distribution with clumping of species the results in the log10 SAR seem to be the same with a nonlinear increase of species richness with area. A more elaborate simulation could possibly include factors like the environment/geography of an area, changes over time, or ways to account for meta-population structure. This would allow for a more detailed view of the effects of geographic features, a view of how populations are changing, or a more accurate view of population structure.
 ## SUBMITTING YOUR ASSIGNMENT
 Use Knitr to create a PDF of your completed 7.Wrangling_Worksheet.Rmd document, push it to GitHub, and create a pull request.
 Please make sure your updated repo include both the pdf and RMarkdown files.
