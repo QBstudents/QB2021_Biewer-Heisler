@@ -114,6 +114,7 @@ In the R code chunk below, do the following:
 4. plot the rooted tree. 
 
 ```{r}
+#p.DNAbin <- p.DNAbin[, 500:650]
 seq.dist.raw <- dist.dna(p.DNAbin, model = "raw", pairwise.deletion = FALSE)
 
 nj.tree <-bionj(seq.dist.raw)
@@ -220,7 +221,22 @@ In the R code chunk below, do the following:
 2. Plot bootstrap support values onto the tree
 
 ```{r}
-#This code was unable to run due to the pml function
+dist.topo(raw.rooted, F84.rooted, method = "score")
+
+p.DNAbin.phyDat <- read.phyDat("./data/p.isolates.afa", format = "fasta", type = "DNA")
+fit <- pml(nj.rooted, data = p.DNAbin.phyDat[,500:650])
+fitJC <- optim.pml(fit, TRUE)
+fitGTR <- optim.pml(fit, model = "GTR", optInv=TRUE, optGamma = TRUE)
+anova(fitJC, fitGTR)
+AIC(fitJC)
+AIC(fitGTR)
+
+ml.bootstrap <- read.tree("./data/ml_tree/RAxML_bipartitions.T1")
+par(mar = c(1,1,2,1) + 0.1)
+plot.phylo(ml.bootstrap, type = "phylogram", direction = "right", show.tip.label = TRUE, use.edge.length = FALSE, cex = 0.6, label.offset = 1, 
+           main = "Maximim Likelihood with Support Values")
+add.scale.bar(cex = 0.7)
+nodelabels(ml.bootstrap$node.label, font = 2, bg = "white", frame = "r", cex = 0.5)
 
 ```
 
@@ -237,11 +253,11 @@ d) Which branches have very low support?
 
 e) Should we trust these branches? 
 
-> ***Answer 5a***:   We could not get to these due to consistent issues trying to run the pml function.
-> ***Answer 5b***:   
-> ***Answer 5c***:   
-> ***Answer 5d***:   
-> ***Answer 5e***:   
+> ***Answer 5a***: It doesn't seem like there are notable differences, but this may be due to the smaller region that was used in order to get the code to run.
+> ***Answer 5b***: We bootstrap trees in order to determine the certainty of the separation between branches.    
+> ***Answer 5c***: The bootstrap values tell us how often when forming the tree this conformation appeared.   
+> ***Answer 5d***: Some values with low support include areas between WG42, LL43F, and their neighboring branch.   
+> ***Answer 5e***: I don't believe we should trust these branches since their values are so low, in the 20's, and the generally accepted value is around 95.   
 
 
 ## 5) INTEGRATING TRAITS AND PHYLOGENY
